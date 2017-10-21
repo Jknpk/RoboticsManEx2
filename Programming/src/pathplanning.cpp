@@ -9,6 +9,7 @@
 #include <rwlibs/proximitystrategies/ProximityStrategyFactory.hpp>
 #include <rw/models/WorkCell.hpp>
 #include <rw/kinematics/Kinematics.hpp>
+#include <math.h>
 
 using namespace std;
 using namespace rw::common;
@@ -92,7 +93,11 @@ int main(int argc, char** argv) {
 	/** More complex way: allows more detailed definition of parameters and methods */
 	QSampler::Ptr sampler = QSampler::makeConstrained(QSampler::makeUniform(device),constraint.getQConstraintPtr());
 	QMetric::Ptr metric = MetricFactory::makeEuclidean<Q>();
-    double extend = 0.15;
+    /************************************/
+
+    double extend = 0.2;
+
+    /************************************/
 	QToQPlanner::Ptr planner = RRTPlanner::makeQToQPlanner(constraint, sampler, metric, extend, RRTPlanner::RRTConnect);
 
     //default configuration
@@ -129,10 +134,14 @@ int main(int argc, char** argv) {
     QPath shortestPath;
     int shortestPathLength = 0xffffffff;
     Timer t;
-    int iterations = 10;
-    int longestPathLength = 0;
-    double mean;
+    /************************************/
 
+    int iterations = 50;
+
+    /*************************************************/
+    int longestPathLength = 0;
+    double mean = 0;
+    int length[iterations];
 
     for(int i = 0; i < iterations; i++){
         //QPath *pointerToPath = &path;
@@ -144,7 +153,7 @@ int main(int argc, char** argv) {
         if (t.getTime() >= MAXTIME) {
             cout << "Notice: max time of " << MAXTIME << " seconds reached." << endl;
         }
-
+        length[i]= path.size();
         if(path.size() < shortestPathLength){
             shortestPathLength = path.size();
             shortestPath = path;
@@ -152,9 +161,14 @@ int main(int argc, char** argv) {
         if(path.size() > longestPathLength){
             longestPathLength = path.size();
         }
-        mean += path.size();
+        mean += (double)path.size();
     }
     mean /= iterations;
+    double sum = 0;
+    for(int i = 0; i < iterations; i++){
+        sum += (length[i]-mean)*(length[i]-mean);
+    }
+    double standardDev = sqrt(sum / (iterations-1));
 
     ostringstream finalstream;
     for (QPath::iterator it = shortestPath.begin(); it < shortestPath.end(); it++) {
@@ -171,6 +185,7 @@ int main(int argc, char** argv) {
 
     cout << "The longest  Path contains " << longestPathLength << " steps!" << endl;
     cout << "The shortest Path contains " << shortestPathLength << " steps!" << endl;
+    cout << "The standard deviation is " << standardDev <<  endl;
 
 
     // Call the export function to create the final lua code

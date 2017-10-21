@@ -29,6 +29,8 @@ rw/models/WorkCell.hpp
 -
 rw/kinematics/Kinematics.hpp
 -
+math.h
+-
 
 /home/student/RobWork/RobWork/cmake/../ext/boostbindings/boost/numeric/bindings/lapack/geev.hpp
 boost/numeric/bindings/traits/traits.hpp
