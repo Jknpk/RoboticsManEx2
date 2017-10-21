@@ -1,4 +1,5 @@
 #include <iostream>
+#include <iomanip>
 #include <string>
 #include <fstream>
 #include <streambuf>
@@ -23,6 +24,20 @@ using namespace rwlibs::proximitystrategies;
 
 #define MAXTIME 100.
 
+void exportLUAScript(ostringstream &finalstream)
+{
+    string finalstring = finalstream.str();
+    ifstream tt("lua_template.txt");
+    stringstream buffer;
+    buffer << tt.rdbuf();
+    string buffer2 = buffer.str();
+    ofstream myfile;
+    myfile.open("lua.txt");
+    myfile << buffer2 << endl << finalstring << endl;
+    myfile.close();
+}
+
+
 bool checkCollisions(Device::Ptr device, const State &state, const CollisionDetector &detector, const Q &q) {
 	State testState;
 	CollisionDetector::QueryResult data;
@@ -42,6 +57,7 @@ bool checkCollisions(Device::Ptr device, const State &state, const CollisionDete
 	}
 	return true;
 }
+
 
 int main(int argc, char** argv) {
     // Configure Random Seed
@@ -76,7 +92,7 @@ int main(int argc, char** argv) {
 	/** More complex way: allows more detailed definition of parameters and methods */
 	QSampler::Ptr sampler = QSampler::makeConstrained(QSampler::makeUniform(device),constraint.getQConstraintPtr());
 	QMetric::Ptr metric = MetricFactory::makeEuclidean<Q>();
-    double extend = 0.05;
+    double extend = 0.15;
 	QToQPlanner::Ptr planner = RRTPlanner::makeQToQPlanner(constraint, sampler, metric, extend, RRTPlanner::RRTConnect);
 
     //default configuration
@@ -86,13 +102,11 @@ int main(int argc, char** argv) {
     //Q to(6,1.7,0.6,-0.8,0.3,0.7,-0.5); // Very difficult for planner
 
     //custom configuration
-    cout << "test1" << endl;
     Q from(6, -3.142, -0.827, -3.002, -3.143, 0.099, -1.573);
     //Q from(6,-0.2,-0.6,1.5,0.0,0.6,1.2);
 
     //Q from(6,-0.2,-0.6,1.5,0.0,0.6);
 
-    cout << "test2" << endl;
     //Q to(6,1.4,-1.3,1.5,0.3,1.3);
     Q to(6, 1.571, 0.006, 0.03, 0.153, 0.762, 4.49);
 
@@ -110,18 +124,40 @@ int main(int argc, char** argv) {
 		return 0;
     cout << "test3" << endl;
 	cout << "Planning from " << from << " to " << to << endl;
-	QPath path;
-	Timer t;
-	t.resetAndResume();
-	planner->query(from,to,path,MAXTIME);
-	t.pause();
-	cout << "Path of length " << path.size() << " found in " << t.getTime() << " seconds." << endl;
-	if (t.getTime() >= MAXTIME) {
-		cout << "Notice: max time of " << MAXTIME << " seconds reached." << endl;
-	}
+
+    QPath path;
+    QPath shortestPath;
+    int shortestPathLength = 0xffffffff;
+    Timer t;
+    int iterations = 10;
+    int longestPathLength = 0;
+    double mean;
+
+
+    for(int i = 0; i < iterations; i++){
+        //QPath *pointerToPath = &path;
+        path.clear();
+        t.resetAndResume();
+        planner->query(from,to,path,MAXTIME);
+        t.pause();
+        cout << "(" << setfill('0') << setw(3) << i+1 << "/" << iterations << ") Path of length " << path.size() << " found in " << t.getTime() << " seconds."  << endl;
+        if (t.getTime() >= MAXTIME) {
+            cout << "Notice: max time of " << MAXTIME << " seconds reached." << endl;
+        }
+
+        if(path.size() < shortestPathLength){
+            shortestPathLength = path.size();
+            shortestPath = path;
+        }
+        if(path.size() > longestPathLength){
+            longestPathLength = path.size();
+        }
+        mean += path.size();
+    }
+    mean /= iterations;
 
     ostringstream finalstream;
-	for (QPath::iterator it = path.begin(); it < path.end(); it++) {
+    for (QPath::iterator it = shortestPath.begin(); it < shortestPath.end(); it++) {
         ostringstream stream;
         stream << *it;
         string str =  stream.str();
@@ -130,21 +166,19 @@ int main(int argc, char** argv) {
         cout << str << endl;
         finalstream << str << endl;
 	}
+    cout << endl << "Statistics for extend-value " << extend << ": " << endl;
+    cout << "Mean of Path Lengths: " << mean << endl;
 
-    string finalstring = finalstream.str();
-
-    ifstream tt("lua_template.txt");
-    stringstream buffer;
-    buffer << tt.rdbuf();
-    string buffer2 = buffer.str();
-    ofstream myfile;
-    myfile.open("lua.txt");
-    myfile << buffer2 << endl << finalstring << endl;
-    myfile.close();
+    cout << "The longest  Path contains " << longestPathLength << " steps!" << endl;
+    cout << "The shortest Path contains " << shortestPathLength << " steps!" << endl;
 
 
-    // lua_template.txt
+    // Call the export function to create the final lua code
+    exportLUAScript(finalstream);
 
 	cout << "Program done." << endl;
 	return 0;
 }
+
+
+
